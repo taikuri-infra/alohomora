@@ -1,10 +1,15 @@
 # Alohomora — Unlock AI Infrastructure 🪄
 
-A from-scratch, provider-agnostic Kubernetes AI platform: local 4-node cluster on the Mac,
-elastic **rented-GPU nodes joining over WireGuard**, vLLM serving with real capacity testing.
-Built as a hands-on learning project for AI-platform-engineer roles.
+**Open-source AI infrastructure anyone can run.** A from-scratch, provider-agnostic
+Kubernetes AI platform: a local HA cluster on your laptop, elastic **rented-GPU nodes
+joining over WireGuard**, vLLM serving behind an AI gateway with model tiering, and real
+capacity testing so you know exactly how many concurrent users your GPUs can take.
 
 > *"It's leviOsa, not levioSA"* — and it's `nvidia.com/gpu: 1`, not a mock.
+
+**Status:** Phase 0–1 done and verified — 4-node k3s HA cluster (3 control-plane +
+1 worker) with Cilium (kube-proxy-free) and a kube-vip API VIP, fully automated with
+Vagrant + Ansible. See [docs/runbooks](docs/runbooks/) for the exact bring-up log.
 
 ## Architecture
 
@@ -73,7 +78,7 @@ Node IPs on `192.168.105.0/24` (static, high range to dodge vmnet DHCP), see `Va
 ## Roadmap
 
 - [x] Phase 0 — repo scaffold, 4-node Vagrant lab, mesh network
-- [ ] Phase 1 — k3s HA (embedded etcd) + kube-vip + Cilium (Ansible)
+- [x] Phase 1 — k3s HA (embedded etcd) + kube-vip + Cilium (Ansible)
 - [ ] Phase 2 — GitOps core: ArgoCD, cert-manager, Longhorn, MinIO
 - [ ] Phase 3 — Observability: Prometheus/Grafana/Loki, default-deny NetworkPolicies
 - [ ] Phase 4 — WireGuard hub + first rented GPU node joins (GPU Operator, `nvidia.com/gpu` visible)
