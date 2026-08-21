@@ -3,4 +3,5 @@
 .DS_Store
 ansible/inventory/local
 kubeconfig
+.secrets/
 *.retry

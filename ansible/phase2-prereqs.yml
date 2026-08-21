@@ -1,0 +1,14 @@
+---
+# Phase 2 prerequisites — Longhorn needs open-iscsi (and nfs-common for RWX) on every node
+- name: Storage prerequisites on all nodes
+  hosts: all
+  become: true
+  tasks:
+    - name: Install open-iscsi and nfs-common
+      apt:
+        name: [open-iscsi, nfs-common]
+        state: present
+        update_cache: true
+
+    - name: Enable and start iscsid
+      systemd: { name: iscsid, enabled: true, state: started }
