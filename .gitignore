@@ -1,0 +1,5 @@
+.vagrant/
+*.qcow2
+.DS_Store
+ansible/inventory/local
+*.retry
