@@ -1,4 +1,14 @@
-.PHONY: up down status mesh-test ssh-%
+.PHONY: up down status mesh-test ssh-% provision cluster kube
+
+# full bring-up: VMs + k3s HA + kube-vip + Cilium
+cluster: up provision
+
+provision:
+	cd ansible && ansible-playbook site.yml
+
+# print how to use the fetched kubeconfig
+kube:
+	@echo 'export KUBECONFIG=$(CURDIR)/kubeconfig'
 
 up:
 	vagrant up

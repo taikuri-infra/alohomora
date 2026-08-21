@@ -1,0 +1,16 @@
+all:
+  vars:
+    ansible_user: vagrant
+    ansible_ssh_common_args: "-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+    ansible_ssh_private_key_file: "{{ inventory_dir }}/../../.vagrant/machines/{{ inventory_hostname }}/qemu/private_key"
+  children:
+    server_init:
+      hosts:
+        cp1: { ansible_host: 192.168.105.211, node_ip: 192.168.105.211 }
+    server_join:
+      hosts:
+        cp2: { ansible_host: 192.168.105.212, node_ip: 192.168.105.212 }
+        cp3: { ansible_host: 192.168.105.213, node_ip: 192.168.105.213 }
+    workers:
+      hosts:
+        worker1: { ansible_host: 192.168.105.221, node_ip: 192.168.105.221 }

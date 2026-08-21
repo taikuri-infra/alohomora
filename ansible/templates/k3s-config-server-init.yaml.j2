@@ -1,0 +1,13 @@
+cluster-init: true
+token: "{{ k3s_token }}"
+node-ip: "{{ node_ip }}"
+tls-san:
+  - "{{ api_vip }}"
+  - "{{ cp1_ip }}"
+# Cilium does everything — strip k3s down
+flannel-backend: none
+disable-network-policy: true
+disable-kube-proxy: true
+disable:
+  - servicelb
+  - traefik

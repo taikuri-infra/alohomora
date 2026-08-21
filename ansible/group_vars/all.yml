@@ -1,0 +1,14 @@
+# Alohomora cluster settings
+k3s_channel: stable
+k3s_token: "LOCAL-SECRETS-FILE"   # lab-only token, rotate for anything real
+
+cp1_ip: 192.168.105.211
+api_vip: 192.168.105.210          # kube-vip floating VIP for the API server
+mesh_interface: mesh0
+
+cilium_version: "1.18.1"
+kube_vip_version: "v0.8.9"
+
+# Cilium LB-IPAM pool for type: LoadBalancer services (announced via L2 on mesh0)
+lb_pool_start: 192.168.105.230
+lb_pool_stop: 192.168.105.239

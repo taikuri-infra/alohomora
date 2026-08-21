@@ -1,0 +1,12 @@
+server: "https://{{ cp1_ip }}:6443"
+token: "{{ k3s_token }}"
+node-ip: "{{ node_ip }}"
+tls-san:
+  - "{{ api_vip }}"
+  - "{{ cp1_ip }}"
+flannel-backend: none
+disable-network-policy: true
+disable-kube-proxy: true
+disable:
+  - servicelb
+  - traefik
