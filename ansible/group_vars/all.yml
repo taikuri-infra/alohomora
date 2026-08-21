@@ -1,6 +1,7 @@
 # Alohomora cluster settings
 k3s_channel: stable
-k3s_token: "LOCAL-SECRETS-FILE"   # lab-only token, rotate for anything real
+# cluster join token: read from .secrets/k3s-token, auto-generated on first run (never in git)
+k3s_token: "{{ lookup('ansible.builtin.password', playbook_dir ~ '/../.secrets/k3s-token chars=ascii_letters,digits length=32') }}"
 
 cp1_ip: 192.168.105.211
 api_vip: 192.168.105.210          # kube-vip floating VIP for the API server
