@@ -11,6 +11,10 @@ spec:
     targetRevision: 1.9.1
     helm:
       valuesObject:
+        # the pre-upgrade hook job deadlocks under argocd (needs a serviceaccount
+        # that only exists after the main sync) — longhorn docs say disable it for gitops
+        preUpgradeChecker:
+          jobEnabled: false
         # single worker node in the lab — one replica, more when GPU/extra nodes join
         defaultSettings:
           defaultReplicaCount: 1
