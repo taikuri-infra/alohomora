@@ -1,20 +1,25 @@
 # Alohomora — Unlock AI Infrastructure 🪄
 
-**Open-source AI infrastructure anyone can run.** A from-scratch, provider-agnostic
-Kubernetes AI platform: a local HA cluster on your laptop, elastic **rented-GPU nodes
-joining over WireGuard**, vLLM serving behind an AI gateway with model tiering, and real
-capacity testing so you know exactly how many concurrent users your GPUs can take.
+Open-source AI infrastructure you can actually run yourself. A k3s cluster on your own
+machine, rented GPU servers joining over WireGuard when you need them, vLLM behind a real
+AI gateway, and load tests that tell you exactly how many concurrent users your GPUs can
+handle before they fall over.
 
 > *"It's leviOsa, not levioSA"* — and it's `nvidia.com/gpu: 1`, not a mock.
 
-**Status:** Phase 0–1 done and verified — 4-node k3s HA cluster (3 control-plane +
-1 worker) with Cilium (kube-proxy-free) and a kube-vip API VIP, fully automated with
-Vagrant + Ansible. See [docs/runbooks](docs/runbooks/) for the exact bring-up log.
+## Why this exists
+
+Most "LLMs on Kubernetes" tutorials either mock the GPU or assume you own a DGX. Neither
+is real life. The interesting problems start when your GPU is a rented VM on the other
+side of the internet: how does it join the cluster, what breaks inside the tunnel, where
+do the model weights live so the GPU node stays disposable, and what actually happens
+when 200 clients hit vLLM at the same time. That's what this repo digs into — and
+everything is automated, so tearing it all down and rebuilding is routine, not a setback.
 
 ## Architecture
 
 ```
-Mac (Vagrant + QEMU)                          Internet (rented GPU VM)
+Your machine (Vagrant + QEMU)                 Internet (rented GPU VM)
 ┌──────────────────────────────┐              ┌─────────────────────────┐
 │  cp1  cp2  cp3   worker1     │  WireGuard   │  gpu1 (NVIDIA)          │
 │  k3s HA (embedded etcd)      │◄────────────►│  k3s agent, tainted     │
@@ -22,68 +27,73 @@ Mac (Vagrant + QEMU)                          Internet (rented GPU VM)
 │  Envoy AI Gateway            │              │  vLLM + model           │
 │  MinIO (model weights)       │              │  (disposable node)      │
 │  Prometheus / Grafana        │              └─────────────────────────┘
-└──────────────────────────────┘              (+ gpu2 for scale-out test)
+└──────────────────────────────┘              (+ gpu2 to test scale-out)
 ```
 
-- **Cluster:** k3s HA (embedded etcd), 3 servers + 1 agent. kube-vip VIP: `192.168.105.210`.
-  k3s runs stripped (`--flannel-backend=none --disable-network-policy --disable=servicelb
-  --disable=traefik`) so **Cilium does everything** (kube-proxy replacement, LB-IPAM, Hubble).
-  etcd never leaves the Mac. k3s over RKE2: lighter, simpler, and this ships to orgs as an
-  open-source tool — low-friction install matters. Scales to 10+ GPU agents joining later.
-- **GPU nodes:** full VMs with root (Lambda / DataCrunch / GCP spot — container rentals can't
-  join as nodes). Join over WireGuard as tainted `gpu_worker` nodes. One stretched cluster.
-- **GPU Operator** installs driver + container toolkit → node advertises `nvidia.com/gpu`.
-- **Model weights live in MinIO** (S3 API) on the local cluster — GPU nodes stay disposable.
-  vLLM *must* run on the GPU node (CUDA is local-only); everything else stays on the Mac.
-- **AI Gateway: Envoy AI Gateway** — token-based quotas per consumer/org, model tiering
-  (high tier → big Qwen, normal tier → small Qwen), provider fallback, and Gateway API
-  Inference Extension (InferencePool: KV-cache/queue-depth-aware routing to vLLM replicas).
-- **Capacity testing:** k6 + `vllm bench serve` against the OpenAI-compatible endpoint.
-  Metrics that matter: TTFT, TPOT, tokens/sec, `num_requests_waiting`, `gpu_cache_usage_perc`.
-  Scale-out = data parallelism (2 vLLM replicas), never tensor parallelism over WAN.
+- **Cluster:** k3s HA with embedded etcd, 3 servers + 1 agent, kube-vip floating VIP for
+  the API (`192.168.105.210`). k3s runs stripped down (`--flannel-backend=none
+  --disable-kube-proxy --disable servicelb,traefik`) so Cilium handles everything:
+  kube-proxy replacement, LB-IPAM, Hubble observability. etcd never leaves your machine.
+- **GPU nodes** are full VMs with root access (Lambda, DataCrunch, GCP spot — container
+  rentals can't join a cluster). They connect over WireGuard as tainted k3s agents.
+  One stretched cluster, not multi-cluster. NVIDIA GPU Operator handles drivers.
+- **Model weights live in MinIO** on the local cluster. vLLM itself has to run on the GPU
+  node (CUDA is local-only), but it pulls weights from S3 at startup — which is exactly
+  what makes GPU nodes disposable.
+- **Gateway:** Envoy AI Gateway. Token-based quotas per consumer, model tiering (premium
+  orgs get the big Qwen, others get the small one), provider fallback, and Gateway API
+  Inference Extension for KV-cache-aware routing across vLLM replicas.
+- **Scaling:** across GPU nodes it's data parallelism — full vLLM replicas behind the
+  gateway. Tensor parallelism over a WAN tunnel is a trap; don't.
+- **GitOps:** ArgoCD app-of-apps. The only thing ever installed by hand is ArgoCD itself.
 
-## Local lab
+## Running it
 
-Requirements: Vagrant + `vagrant-qemu` plugin + QEMU (homebrew). Box: `perk/ubuntu-2204-arm64`.
-
-One-time (vmnet needs root):
+You need Vagrant, QEMU and the vagrant-qemu plugin. On macOS also socket_vmnet
+(vmnet needs root, hence the sudo):
 
 ```bash
-brew install socket_vmnet
+brew install qemu vagrant socket_vmnet
+vagrant plugin install vagrant-qemu
 sudo brew services start socket_vmnet
 ```
 
+Then:
+
 ```bash
-make up          # boot all 4 nodes
-make status
-make mesh-test   # verify inter-VM mesh network
-make ssh-cp1
-make down        # destroy everything (rebuilding is practice, not a setback)
+make cluster                        # VMs + k3s + Cilium + kube-vip, start to finish
+export KUBECONFIG=$PWD/kubeconfig
+kubectl get nodes                   # 4 nodes, Ready
 ```
 
-Inter-VM networking uses **socket_vmnet** (same as Lima/Colima) — a shared L2 segment that the
-Mac host is also on (`bridge100`, `192.168.105.1`), so `kubectl` works directly from the host.
-Node IPs on `192.168.105.0/24` (static, high range to dodge vmnet DHCP), see `Vagrantfile`.
-(QEMU multicast-socket mesh was tried first — mcast loopback doesn't work on macOS.)
+`make mesh-test` checks the inter-VM network, `make down` destroys everything.
+The exact bring-up log with all commands is in
+[docs/runbooks/00-bootstrap-local-cluster.md](docs/runbooks/00-bootstrap-local-cluster.md),
+and [docs/TESTING.md](docs/TESTING.md) has the failure drills.
 
-## Gotchas (learned the hard way / by design)
+Inter-VM networking runs over socket_vmnet (the same mechanism Lima and Colima use) —
+a shared L2 segment that your Mac is also on, so kubectl talks to the VIP directly.
+QEMU's multicast socket networking was the first attempt; it silently drops packets on
+macOS. Node IPs sit high in the subnet to stay clear of the vmnet DHCP range.
 
-- **MTU over WireGuard:** Cilium overlay inside WireGuard needs lowered MTU (~1280–1340)
-  or you get mysterious hangs. Expected failure mode when GPU nodes join.
-- **etcd must never span sites** — only workers stretch over the tunnel.
-- vLLM concurrency limit = **KV-cache VRAM**, not CPU. Bigger model / longer context =
-  fewer concurrent clients. This is the tradeoff the stress tests make visible.
-- VirtualBox is not installed (and is rough on Apple Silicon) — the lab runs on QEMU+HVF.
+## Status
 
-## Roadmap
+- [x] local lab: 4 VMs, k3s HA, Cilium kube-proxy-free, kube-vip VIP — verified
+- [x] GitOps tree: ArgoCD app-of-apps with cert-manager, Longhorn, MinIO
+- [ ] observability: Prometheus, Grafana, Loki, default-deny network policies
+- [ ] WireGuard hub + first rented GPU node, GPU Operator, `nvidia.com/gpu` in the cluster
+- [ ] vLLM serving weights from MinIO, Envoy AI Gateway, model tiering
+- [ ] load testing: k6 + vllm bench, find the real saturation point
+- [ ] second GPU node: KV-cache-aware routing, scale-from-zero provisioner
 
-- [x] Phase 0 — repo scaffold, 4-node Vagrant lab, mesh network
-- [x] Phase 1 — k3s HA (embedded etcd) + kube-vip + Cilium (Ansible)
-- [ ] Phase 2 — GitOps core: ArgoCD, cert-manager, Longhorn, MinIO
-- [ ] Phase 3 — Observability: Prometheus/Grafana/Loki, default-deny NetworkPolicies
-- [ ] Phase 4 — WireGuard hub + first rented GPU node joins (GPU Operator, `nvidia.com/gpu` visible)
-- [ ] Phase 5 — vLLM serving (weights from MinIO), Envoy AI Gateway, model tiering
-- [ ] Phase 6 — Capacity testing: k6 + vllm bench, find the saturation point, write it up
-- [ ] Phase 7 — Scale-out: 2nd GPU node, InferencePool KV-cache-aware routing, scale-from-zero
+## Things that will save you a day
 
-Runbooks from every drill land in `docs/runbooks/` — those are the interview stories.
+- **MTU inside WireGuard:** Cilium's overlay needs a lowered MTU (~1280–1340) inside the
+  tunnel or you get connections that mysteriously hang.
+- **etcd must never span sites.** Only workers stretch over the tunnel. Quorum over a WAN
+  is how you lose a cluster.
+- vLLM's concurrency ceiling is **KV-cache VRAM**, not CPU. Bigger model or longer
+  context = fewer concurrent clients. The load tests make this visible.
+- Secrets never touch git: the k3s join token and MinIO credentials are generated into a
+  gitignored `.secrets/` directory. Vault + External Secrets comes later.
+- On Apple Silicon forget VirtualBox; QEMU + HVF via vagrant-qemu works fine.

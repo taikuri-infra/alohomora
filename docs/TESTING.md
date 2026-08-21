@@ -8,8 +8,8 @@ Write findings into `docs/runbooks/` — a drill without a writeup didn't happen
 | Level | What | When |
 |-------|------|------|
 | Smoke | Network + node health after any bring-up | after every `make up` / rebuild |
-| Drill | Deliberate failure injection | once per phase, and after big changes |
-| Load  | Capacity testing against vLLM (k6, vllm bench) | Phase 6+ |
+| Drill | Deliberate failure injection | after every milestone and big change |
+| Load  | Capacity testing against vLLM (k6, vllm bench) | once vLLM is serving |
 
 ## Smoke tests
 
@@ -57,7 +57,7 @@ kubectl delete deployment drill-nginx      # cleanup
 **Expected failure to understand:** kill TWO servers → quorum lost (1/3) → API goes
 read-only/down entirely. That's why it's 3, and why 2 servers are worse than 1.
 
-## Drill 2 — GitOps drift correction (after Phase 2 sync is live)
+## Drill 2 — GitOps drift correction (once ArgoCD sync is live)
 
 ```bash
 kubectl -n minio edit deployment minio     # hand-edit something (e.g. replicas)
@@ -73,13 +73,13 @@ vagrant halt -f worker1                    # the only worker: workloads go Pendi
 vagrant up worker1                         # everything reschedules; Longhorn volume recovers
 ```
 
-## Drill 4 — WireGuard/GPU node loss (Phase 4+)
+## Drill 4 — WireGuard/GPU node loss (once a GPU node is attached)
 
 Kill the WireGuard tunnel to a GPU node mid-inference: vLLM pod goes NotReady,
 gateway fails over to the fallback model, queue drains when the node returns.
 Also the MTU test lives here: Cilium-in-WireGuard needs MTU ~1280–1340.
 
-## Load tests (Phase 6+)
+## Load tests (once vLLM is serving)
 
 - `vllm bench serve` — TTFT, TPOT, tokens/sec at increasing concurrency
 - k6 against the OpenAI-compatible endpoint — find max concurrent clients before

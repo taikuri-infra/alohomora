@@ -1,5 +1,5 @@
 ---
-# Alohomora Phase 1 — k3s HA (embedded etcd) + kube-vip + Cilium
+# Alohomora — k3s HA (embedded etcd) + kube-vip + Cilium
 # Run: cd ansible && ansible-playbook site.yml
 
 - name: Bootstrap first server (cp1)

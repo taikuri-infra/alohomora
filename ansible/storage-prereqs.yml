@@ -1,5 +1,5 @@
 ---
-# Phase 2 prerequisites — Longhorn needs open-iscsi (and nfs-common for RWX) on every node
+# Longhorn prerequisites — needs open-iscsi (and nfs-common for RWX) on every node
 - name: Storage prerequisites on all nodes
   hosts: all
   become: true

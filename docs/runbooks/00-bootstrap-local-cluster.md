@@ -1,4 +1,4 @@
-# Runbook 00 — Bootstrap the local 4-node cluster (Phase 0 + 1)
+# Bootstrapping the local 4-node cluster
 
 Exact commands used to bring up the Alohomora local lab from zero, verified 2026-08-21.
 Result: k3s v1.36.3+k3s1 HA cluster (3 control-plane + 1 worker), Cilium 1.18.1

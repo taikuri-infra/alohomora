@@ -14,7 +14,7 @@ spec:
         mode: standalone
         replicas: 1
         # root credentials come from a pre-created Secret (never in git);
-        # created by scripts/create-minio-secret.sh — Vault + ESO in Phase 4
+        # created by scripts/create-minio-secret.sh — Vault + External Secrets later
         existingSecret: minio-root-creds
         persistence:
           enabled: true
