@@ -12,6 +12,10 @@ metadata:
   labels: { app: qwen-small, tier: fallback }
 spec:
   replicas: 1
+  # single node, cpu-request ~= node capacity: rolling update would deadlock
+  # (old pod holds the cpu the new pod needs). kill old first.
+  strategy:
+    type: Recreate
   selector:
     matchLabels: { app: qwen-small }
   template:
