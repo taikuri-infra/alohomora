@@ -1,0 +1,52 @@
+---
+# Re-render the k3s server config and restart servers one at a time.
+# Serial: 1 keeps etcd quorum alive throughout — this is a zero-downtime change.
+# Run: cd ansible && ansible-playbook k3s-config-update.yml
+
+- name: Update config on the first server
+  hosts: server_init
+  become: true
+  serial: 1
+  tasks:
+    - name: Render k3s config
+      template:
+        src: templates/k3s-config-server-init.yaml.j2
+        dest: /etc/rancher/k3s/config.yaml
+        mode: "0600"
+      register: cfg
+
+    - name: Restart k3s
+      systemd: { name: k3s, state: restarted }
+      when: cfg.changed
+
+    - name: Wait for API to come back
+      command: k3s kubectl get --raw /readyz
+      register: readyz
+      until: readyz.rc == 0
+      retries: 30
+      delay: 5
+      changed_when: false
+
+- name: Update config on the remaining servers
+  hosts: server_join
+  become: true
+  serial: 1
+  tasks:
+    - name: Render k3s config
+      template:
+        src: templates/k3s-config-server-join.yaml.j2
+        dest: /etc/rancher/k3s/config.yaml
+        mode: "0600"
+      register: cfg
+
+    - name: Restart k3s
+      systemd: { name: k3s, state: restarted }
+      when: cfg.changed
+
+    - name: Wait for API to come back
+      command: k3s kubectl get --raw /readyz
+      register: readyz
+      until: readyz.rc == 0
+      retries: 30
+      delay: 5
+      changed_when: false
