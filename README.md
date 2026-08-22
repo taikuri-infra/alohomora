@@ -90,7 +90,9 @@ macOS. Node IPs sit high in the subnet to stay clear of the vmnet DHCP range.
       to backends, `/v1/models` catalog — GPU backends plug in as one more YAML
 - [ ] gateway consumer auth (API keys), token-based quotas, model tiering
 - [ ] default-deny network policies
-- [ ] WireGuard hub + first rented GPU node, GPU Operator, `nvidia.com/gpu` in the cluster
+- [x] WireGuard mesh ready: wg0 on all nodes, GPU Operator armed and idle, one-command
+      bootstrap for any rented GPU VM ([docs/runbooks/02](docs/runbooks/02-gpu-node-join.md))
+- [ ] first rented GPU node actually joined — `nvidia.com/gpu: 1` in the cluster
 - [ ] vLLM serving weights from MinIO, Envoy AI Gateway, model tiering
 - [ ] load testing: k6 + vllm bench, find the real saturation point
 - [ ] second GPU node: KV-cache-aware routing, scale-from-zero provisioner
