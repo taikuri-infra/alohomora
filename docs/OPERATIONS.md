@@ -5,24 +5,31 @@ How to reach, inspect, start and stop every moving part. Assumes
 
 ## The map
 
-| Component | Where | How to reach it |
-|-----------|-------|-----------------|
-| Kubernetes API | VIP `192.168.105.210:6443` | kubectl (kubeconfig points here) |
-| ArgoCD UI | in-cluster | port-forward 8080 → https://localhost:8080 |
-| Hubble UI | in-cluster | port-forward 8081 → http://localhost:8081 |
-| Longhorn UI | in-cluster | port-forward 8082 → http://localhost:8082 |
-| MinIO console | in-cluster | port-forward 9001 → http://localhost:9001 |
-| MinIO S3 API | in-cluster | port-forward 9000 (apps use `minio.minio.svc:9000`) |
-| Grafana | in-cluster | port-forward 3000 → http://localhost:3000 |
-| Prometheus | in-cluster | port-forward 9090 → http://localhost:9090 |
-| Alertmanager | in-cluster | port-forward 9093 → http://localhost:9093 |
-| Node SSH | `192.168.105.211-213, .221` | `make ssh-cp1` etc., or plain ssh |
+All web UIs sit behind the cilium ingress controller on one shared LB IP
+(`192.168.105.231`); nip.io turns that into hostnames with zero DNS setup.
+
+| Component | How to reach it |
+|-----------|-----------------|
+| Kubernetes API | VIP `https://192.168.105.210:6443` (kubeconfig points here) |
+| qwen-small (OpenAI API) | `http://192.168.105.230:8000/v1` (dedicated LB IP) |
+| Grafana | http://grafana.192.168.105.231.nip.io |
+| Prometheus | http://prometheus.192.168.105.231.nip.io |
+| Alertmanager | http://alertmanager.192.168.105.231.nip.io |
+| ArgoCD | http://argocd.192.168.105.231.nip.io |
+| Hubble UI | http://hubble.192.168.105.231.nip.io |
+| Longhorn UI | http://longhorn.192.168.105.231.nip.io |
+| MinIO console | http://minio.192.168.105.231.nip.io |
+| MinIO S3 API | http://s3.192.168.105.231.nip.io (apps use `minio.minio.svc:9000`) |
+| Node SSH | `192.168.105.211-213, .221` — `make ssh-cp1` etc., or plain ssh |
+
+Ingress manifests: `gitops/platform/ingress/`. HTTP-only for now; TLS arrives
+with cert-manager + a real domain.
 
 LoadBalancer IPs from the Cilium pool (`192.168.105.230-239`) will replace most
 port-forwards once services get `type: LoadBalancer` — the Mac reaches those IPs
 directly over the vmnet bridge.
 
-## Port-forwards (copy-paste)
+## Port-forward fallback (only if ingress is down)
 
 ```bash
 kubectl -n argocd         port-forward svc/argo-cd-argocd-server 8080:443 &
