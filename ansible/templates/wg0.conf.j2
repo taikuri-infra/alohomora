@@ -1,0 +1,13 @@
+[Interface]
+PrivateKey = {{ wg_privkey }}
+Address = {{ wg_ips[inventory_hostname] }}/24
+MTU = {{ wg_mtu }}
+
+{% if gpu_pubkey is defined and gpu_endpoint is defined %}
+[Peer]
+# gpu1 — rented GPU node
+PublicKey = {{ gpu_pubkey }}
+AllowedIPs = {{ wg_gpu_ip }}/32
+Endpoint = {{ gpu_endpoint }}
+PersistentKeepalive = 25
+{% endif %}

@@ -4,6 +4,10 @@ node-ip: "{{ node_ip }}"
 tls-san:
   - "{{ api_vip }}"
   - "{{ cp1_ip }}"
+  # wireguard IPs — GPU agents reach the API through the tunnel
+  - "10.8.0.11"
+  - "10.8.0.12"
+  - "10.8.0.13"
 flannel-backend: none
 disable-network-policy: true
 disable-kube-proxy: true

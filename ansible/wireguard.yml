@@ -1,0 +1,67 @@
+---
+# WireGuard on every lab node — the tunnel that lets rented GPU VMs join the cluster.
+#
+# Two-phase usage:
+#   1. Before renting anything:   ansible-playbook wireguard.yml
+#      (interfaces come up with no peer; pubkeys land in .secrets/wg/)
+#   2. After the GPU VM runs its bootstrap script and prints its pubkey:
+#      ansible-playbook wireguard.yml -e gpu_pubkey=XXXX -e gpu_endpoint=1.2.3.4:51820
+#      (every node dials out to the GPU; NAT is a non-issue since we initiate)
+- name: WireGuard mesh on lab nodes
+  hosts: all
+  become: true
+  tasks:
+    - name: Install wireguard
+      apt:
+        name: wireguard
+        state: present
+        update_cache: true
+
+    - name: Generate private key (once)
+      shell: umask 077 && wg genkey > /etc/wireguard/privatekey
+      args: { creates: /etc/wireguard/privatekey }
+
+    - name: Derive public key
+      shell: wg pubkey < /etc/wireguard/privatekey > /etc/wireguard/publickey
+      args: { creates: /etc/wireguard/publickey }
+
+    - name: Read keys
+      slurp: { src: "{{ item }}" }
+      register: wg_keys
+      loop:
+        - /etc/wireguard/privatekey
+        - /etc/wireguard/publickey
+
+    - name: Set key facts
+      set_fact:
+        wg_privkey: "{{ wg_keys.results[0].content | b64decode | trim }}"
+        wg_pubkey: "{{ wg_keys.results[1].content | b64decode | trim }}"
+
+    - name: Save public key to .secrets/wg/ on the Mac
+      copy:
+        content: "{{ wg_pubkey }}\n"
+        dest: "{{ playbook_dir }}/../.secrets/wg/{{ inventory_hostname }}.pub"
+        mode: "0600"
+      delegate_to: localhost
+      become: false
+
+    - name: Write wg0 config
+      template:
+        src: templates/wg0.conf.j2
+        dest: /etc/wireguard/wg0.conf
+        mode: "0600"
+      register: wgconf
+
+    - name: Enable and start wg0
+      systemd: { name: wg-quick@wg0, enabled: true, state: started }
+
+    - name: Restart wg0 on config change
+      systemd: { name: wg-quick@wg0, state: restarted }
+      when: wgconf.changed
+
+    - name: Verify interface is up
+      command: wg show wg0
+      register: wgshow
+      changed_when: false
+
+    - debug: { msg: "{{ inventory_hostname }} wg0 up — {{ wg_ips[inventory_hostname] }}" }

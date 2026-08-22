@@ -14,3 +14,13 @@ kube_vip_version: "v0.8.9"
 lb_pool_start: 192.168.105.230
 lb_pool_stop: 192.168.105.239
 ingress_ip: 192.168.105.231      # shared cilium-ingress LB IP (UIs via *.nip.io)
+
+# WireGuard mesh to remote GPU nodes (lab dials out; GPU listens on public IP)
+wg_port: 51820
+wg_mtu: 1340                      # cilium vxlan inside wg: lowered or mysterious hangs
+wg_ips:
+  cp1: 10.8.0.11
+  cp2: 10.8.0.12
+  cp3: 10.8.0.13
+  worker1: 10.8.0.21
+wg_gpu_ip: 10.8.0.31              # gpu2 → .32, and so on

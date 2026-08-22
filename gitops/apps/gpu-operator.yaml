@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gpu-operator
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://helm.ngc.nvidia.com/nvidia
+    chart: gpu-operator
+    targetRevision: v26.7.0
+    helm:
+      valuesObject:
+        # the operator + NFD run on CPU nodes now; the driver/toolkit/device-plugin
+        # daemonsets only land on nodes NFD detects NVIDIA hardware on — so this
+        # app is safely idle until the first GPU node joins over wireguard
+        driver:
+          enabled: true
+        toolkit:
+          enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: gpu-operator
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
