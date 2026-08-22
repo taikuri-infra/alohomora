@@ -80,7 +80,13 @@ macOS. Node IPs sit high in the subnet to stay clear of the vmnet DHCP range.
 
 - [x] local lab: 4 VMs, k3s HA, Cilium kube-proxy-free, kube-vip VIP — verified
 - [x] GitOps tree: ArgoCD app-of-apps with cert-manager, Longhorn, MinIO
-- [ ] observability: Prometheus, Grafana, Loki, default-deny network policies
+- [x] monitoring: kube-prometheus-stack (Grafana, Alertmanager); Loki/Tempo deferred
+- [x] CPU serving tier: llama.cpp + Qwen3-0.6B, weights cached in MinIO, behind a
+      Cilium LoadBalancer — first k6 capacity test done
+      ([the writeup](docs/runbooks/01-first-capacity-test.md) is worth reading)
+- [x] ingress: Cilium ingress controller, every UI on a `*.nip.io` hostname over one
+      shared LB IP — zero port-forwards ([docs/OPERATIONS.md](docs/OPERATIONS.md))
+- [ ] default-deny network policies
 - [ ] WireGuard hub + first rented GPU node, GPU Operator, `nvidia.com/gpu` in the cluster
 - [ ] vLLM serving weights from MinIO, Envoy AI Gateway, model tiering
 - [ ] load testing: k6 + vllm bench, find the real saturation point

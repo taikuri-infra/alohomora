@@ -86,6 +86,17 @@ mc alias set lab http://localhost:9000 "$rootUser" "$rootPassword" 2>/dev/null \
 mc ls lab/                                                  # bucket: models
 ```
 
+**Ingress (cilium)** — all UIs answer on their nip.io hostnames:
+
+```bash
+kubectl -n kube-system get svc cilium-ingress    # EXTERNAL-IP 192.168.105.231
+for h in grafana prometheus alertmanager argocd hubble longhorn minio s3; do
+  printf '%-14s ' "$h"
+  curl -s -o /dev/null -w '%{http_code}\n' --max-time 8 "http://$h.192.168.105.231.nip.io/"
+done
+# expect 200s (prometheus 302 → /graph, s3 403 = S3 API refusing anonymous — both fine)
+```
+
 **Prometheus / Grafana / Alertmanager** — targets up, datasource wired:
 
 ```bash
