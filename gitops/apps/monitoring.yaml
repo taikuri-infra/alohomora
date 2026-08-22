@@ -1,0 +1,54 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: monitoring
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 88.5.3
+    helm:
+      valuesObject:
+        prometheus:
+          prometheusSpec:
+            retention: 3d
+            storageSpec:
+              volumeClaimTemplate:
+                spec:
+                  storageClassName: longhorn
+                  resources:
+                    requests:
+                      storage: 8Gi
+            # pick up any ServiceMonitor/PodMonitor in the cluster, not just
+            # the ones released by this chart (vLLM, cilium, gateway later)
+            serviceMonitorSelectorNilUsesHelmValues: false
+            podMonitorSelectorNilUsesHelmValues: false
+        grafana:
+          persistence:
+            enabled: true
+            storageClassName: longhorn
+            size: 2Gi
+        alertmanager:
+          enabled: true
+        # k3s embeds these into one process — no separate endpoints to scrape,
+        # and kube-proxy doesn't exist at all (cilium replaces it)
+        kubeProxy:
+          enabled: false
+        kubeEtcd:
+          enabled: false
+        kubeScheduler:
+          enabled: false
+        kubeControllerManager:
+          enabled: false
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
