@@ -11,13 +11,23 @@ spec:
     targetRevision: v26.7.0
     helm:
       valuesObject:
-        # the operator + NFD run on CPU nodes now; the driver/toolkit/device-plugin
-        # daemonsets only land on nodes NFD detects NVIDIA hardware on — so this
-        # app is safely idle until the first GPU node joins over wireguard
+        # operator + NFD run on CPU nodes now; operands only land on nodes where
+        # NFD detects NVIDIA hardware — safely idle until a GPU node joins.
+        # Verda images ship the driver preinstalled → operator must NOT install it.
         driver:
-          enabled: true
+          enabled: false
+        # toolkit wires nvidia runtime into k3s's embedded containerd
         toolkit:
           enabled: true
+          env:
+            - name: CONTAINERD_CONFIG
+              value: /var/lib/rancher/k3s/agent/etc/containerd/config.toml.tmpl
+            - name: CONTAINERD_SOCKET
+              value: /run/k3s/containerd/containerd.sock
+            - name: CONTAINERD_RUNTIME_CLASS
+              value: nvidia
+            - name: CONTAINERD_SET_AS_DEFAULT
+              value: "true"
   destination:
     server: https://kubernetes.default.svc
     namespace: gpu-operator

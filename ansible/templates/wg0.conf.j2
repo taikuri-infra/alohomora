@@ -3,9 +3,18 @@ PrivateKey = {{ wg_privkey }}
 Address = {{ wg_ips[inventory_hostname] }}/24
 MTU = {{ wg_mtu }}
 
+{% for peer in gpu_peers | default([]) %}
+[Peer]
+# {{ peer.name }} — rented GPU node (we dial out; NAT-safe)
+PublicKey = {{ peer.pubkey }}
+AllowedIPs = {{ peer.wg_ip }}/32
+Endpoint = {{ peer.endpoint }}
+PersistentKeepalive = 25
+{% endfor %}
+{# legacy single-peer form still works: -e gpu_pubkey=... -e gpu_endpoint=... #}
 {% if gpu_pubkey is defined and gpu_endpoint is defined %}
 [Peer]
-# gpu1 — rented GPU node
+# gpu1 (single-peer mode)
 PublicKey = {{ gpu_pubkey }}
 AllowedIPs = {{ wg_gpu_ip }}/32
 Endpoint = {{ gpu_endpoint }}

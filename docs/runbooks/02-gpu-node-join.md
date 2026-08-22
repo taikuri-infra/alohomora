@@ -39,7 +39,30 @@ traffic to node IPs routes through the tunnel.
 - udp/51820 reachable from the internet (check the provider's firewall/SG)
 - Nothing else: no k8s, no drivers — the bootstrap + GPU Operator do everything
 
-## The join, step by step
+## The join — Terraform way (preferred)
+
+Provider: **Verda** (ex-DataCrunch, Helsinki — `FIN-03`, lowest latency to the
+lab). Official Terraform provider `verda-cloud/verda`; auth via
+`VERDA_CLIENT_ID`/`VERDA_CLIENT_SECRET` env vars (console → API keys).
+
+```bash
+export VERDA_CLIENT_ID=... VERDA_CLIENT_SECRET=...
+./scripts/gpu-up.sh 2        # rent 2 nodes, join both, watch kubectl get nodes -w
+./scripts/gpu-down.sh        # drain + destroy + drop peers — billing stops
+```
+
+What gpu-up does: generates local wg keys for gpuN (once) → `terraform apply`
+(`terraform/gpu/`: instance + ssh key + startup script per node; cloud-init has
+the wg private key, lab pubkeys and join token baked in — zero interactive key
+exchange) → writes `.secrets/wg/gpu-peers.json` from terraform outputs → runs
+the wireguard playbook so every lab node dials every GPU. Spot instances:
+`-var is_spot=true` in `terraform/gpu/` for deep discounts.
+
+Defaults: `1L40S.20V` (48GB, ~$1.4/h), image with preinstalled driver
+(`ubuntu-24.04-cuda-12.8-open-docker`) — which is why the GPU Operator runs
+with `driver.enabled=false` and only wires the toolkit into k3s containerd.
+
+## The join — manual way (any provider)
 
 ```bash
 # 1. on the Mac — render the bootstrap (contains secrets, lives in .secrets/):
