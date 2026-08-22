@@ -1,0 +1,106 @@
+# CPU fallback model server — llama.cpp with a small Qwen.
+# vLLM on CPU is pointless; llama.cpp is the honest choice for the fallback tier.
+# The real vLLM lands on the GPU node and speaks the same OpenAI API.
+#
+# Model weights flow: MinIO is the source of truth. The init container tries
+# MinIO first; on a cold start it fills the cache from Hugging Face once.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: qwen-small
+  namespace: ai
+  labels: { app: qwen-small, tier: fallback }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: qwen-small }
+  template:
+    metadata:
+      labels: { app: qwen-small, tier: fallback }
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: worker1
+      initContainers:
+        - name: fetch-model
+          image: minio/mc:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              MODEL=Qwen3-0.6B-Q8_0.gguf
+              mc alias set store http://minio.minio.svc:9000 "$ROOT_USER" "$ROOT_PASSWORD"
+              if mc stat "store/models/$MODEL" >/dev/null 2>&1; then
+                echo "cache hit: pulling from MinIO"
+                mc cp "store/models/$MODEL" "/models/$MODEL"
+              else
+                echo "cache miss: pulling from Hugging Face, then filling MinIO"
+                curl -fL -o "/models/$MODEL" \
+                  "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/$MODEL"
+                mc cp "/models/$MODEL" "store/models/$MODEL"
+              fi
+          env:
+            - name: ROOT_USER
+              valueFrom: { secretKeyRef: { name: minio-creds, key: rootUser } }
+            - name: ROOT_PASSWORD
+              valueFrom: { secretKeyRef: { name: minio-creds, key: rootPassword } }
+          volumeMounts:
+            - { name: models, mountPath: /models }
+      containers:
+        - name: server
+          image: ghcr.io/ggml-org/llama.cpp:server
+          args:
+            - -m
+            - /models/Qwen3-0.6B-Q8_0.gguf
+            - --host
+            - 0.0.0.0
+            - --port
+            - "8000"
+            - --ctx-size
+            - "8192"
+            - --parallel        # 4 concurrent slots — the knob the load tests explore
+            - "4"
+            - --metrics         # prometheus /metrics endpoint
+          ports:
+            - { containerPort: 8000, name: http }
+          resources:
+            requests: { cpu: "2", memory: 2Gi }
+            limits: { memory: 4Gi }
+          readinessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: { path: /health, port: 8000 }
+            initialDelaySeconds: 30
+            periodSeconds: 15
+          volumeMounts:
+            - { name: models, mountPath: /models }
+      volumes:
+        - name: models
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: qwen-small
+  namespace: ai
+  labels: { app: qwen-small }
+spec:
+  type: LoadBalancer          # cilium LB-IPAM hands out 192.168.105.230-239
+  selector: { app: qwen-small }
+  ports:
+    - { name: http, port: 8000, targetPort: 8000 }
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: qwen-small
+  namespace: ai
+  labels: { app: qwen-small }
+spec:
+  selector:
+    matchLabels: { app: qwen-small }
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s

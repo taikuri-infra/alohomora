@@ -1,0 +1,71 @@
+// k6 load test against any OpenAI-compatible endpoint (llama.cpp now, vLLM later).
+//
+//   k6 run -e BASE_URL=http://192.168.105.230:8000 -e MODEL=qwen-small \
+//     scripts/load/chat-completions.js
+//
+// Stages ramp concurrency up until the server saturates. Watch alongside:
+//   - k6 output: p95 duration, req/s, errors
+//   - Grafana: llamacpp:requests_deferred (queue), prompt/predicted tokens/s
+import http from "k6/http";
+import { check } from "k6";
+import { Trend, Counter } from "k6/metrics";
+
+const BASE_URL = __ENV.BASE_URL || "http://192.168.105.230:8000";
+const MODEL = __ENV.MODEL || "qwen-small";
+
+const completionTokens = new Counter("llm_completion_tokens");
+const tokensPerSec = new Trend("llm_tokens_per_second");
+
+export const options = {
+  scenarios: {
+    ramp: {
+      executor: "ramping-vus",
+      startVUs: 1,
+      stages: [
+        { duration: "30s", target: 2 },
+        { duration: "60s", target: 4 },   // = --parallel slots
+        { duration: "60s", target: 8 },   // 2x slots: queueing begins
+        { duration: "30s", target: 16 },  // saturation: watch latency explode
+      ],
+    },
+  },
+  thresholds: {
+    http_req_failed: ["rate<0.05"],
+  },
+};
+
+const prompts = [
+  "Explain what etcd quorum means in three sentences.",
+  "Write a haiku about load balancers.",
+  "What is the difference between a Deployment and a DaemonSet?",
+  "Summarize why model weights should live in object storage.",
+];
+
+export default function () {
+  const payload = JSON.stringify({
+    model: MODEL,
+    messages: [{ role: "user", content: prompts[Math.floor(Math.random() * prompts.length)] }],
+    max_tokens: 64,
+  });
+
+  const res = http.post(`${BASE_URL}/v1/chat/completions`, payload, {
+    headers: { "Content-Type": "application/json" },
+    timeout: "120s",
+  });
+
+  const ok = check(res, {
+    "status 200": (r) => r.status === 200,
+    "has content": (r) => {
+      try { return JSON.parse(r.body).choices[0].message.content.length > 0; }
+      catch { return false; }
+    },
+  });
+
+  if (ok) {
+    const usage = JSON.parse(res.body).usage;
+    if (usage && usage.completion_tokens) {
+      completionTokens.add(usage.completion_tokens);
+      tokensPerSec.add(usage.completion_tokens / (res.timings.duration / 1000));
+    }
+  }
+}
