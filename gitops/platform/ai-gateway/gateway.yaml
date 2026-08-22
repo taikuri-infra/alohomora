@@ -1,0 +1,84 @@
+# The AI Gateway itself: one OpenAI-compatible front door for every model.
+# Clients send a normal /v1/chat/completions request; the gateway extracts the
+# model name from the body into x-ai-eg-model and routes on it.
+#
+#   qwen-small  → llama.cpp CPU tier (today)
+#   qwen-big    → vLLM on the GPU node (soon — one more AIServiceBackend)
+apiVersion: gateway.networking.k8s.io/v1
+kind: GatewayClass
+metadata:
+  name: ai-gateway
+spec:
+  controllerName: gateway.envoyproxy.io/gatewayclass-controller
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: ai-gateway
+  namespace: ai
+spec:
+  gatewayClassName: ai-gateway
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+  infrastructure:
+    annotations:
+      lbipam.cilium.io/ips: "192.168.105.232"   # fixed LB IP: the AI front door
+---
+# default 32KiB buffer is too small for LLM payloads
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: ClientTrafficPolicy
+metadata:
+  name: ai-gateway-buffer
+  namespace: ai
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: ai-gateway
+  connection:
+    bufferLimit: 50Mi
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIGatewayRoute
+metadata:
+  name: models
+  namespace: ai
+spec:
+  parentRefs:
+    - name: ai-gateway
+      kind: Gateway
+      group: gateway.networking.k8s.io
+  rules:
+    - matches:
+        - headers:
+            - type: Exact
+              name: x-ai-eg-model
+              value: qwen-small
+      backendRefs:
+        - name: qwen-small
+---
+apiVersion: aigateway.envoyproxy.io/v1beta1
+kind: AIServiceBackend
+metadata:
+  name: qwen-small
+  namespace: ai
+spec:
+  schema:
+    name: OpenAI
+  backendRef:
+    name: qwen-small
+    kind: Backend
+    group: gateway.envoyproxy.io
+---
+apiVersion: gateway.envoyproxy.io/v1alpha1
+kind: Backend
+metadata:
+  name: qwen-small
+  namespace: ai
+spec:
+  endpoints:
+    - fqdn:
+        hostname: qwen-small.ai.svc.cluster.local
+        port: 8000

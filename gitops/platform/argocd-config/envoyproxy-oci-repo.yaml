@@ -1,0 +1,14 @@
+# Registers docker.io/envoyproxy as an OCI helm repo for ArgoCD.
+# Public registry — no credentials, safe in git.
+apiVersion: v1
+kind: Secret
+metadata:
+  name: envoyproxy-oci
+  namespace: argocd
+  labels:
+    argocd.argoproj.io/secret-type: repository
+stringData:
+  name: envoyproxy-oci
+  url: registry-1.docker.io/envoyproxy
+  type: helm
+  enableOCI: "true"
