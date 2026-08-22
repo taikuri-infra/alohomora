@@ -34,18 +34,20 @@ export const options = {
   },
 };
 
+// /no_think: qwen3 is a thinking model — without it, small max_tokens
+// budgets get eaten by <think> and content comes back empty
 const prompts = [
-  "Explain what etcd quorum means in three sentences.",
-  "Write a haiku about load balancers.",
-  "What is the difference between a Deployment and a DaemonSet?",
-  "Summarize why model weights should live in object storage.",
+  "/no_think Explain what etcd quorum means in three sentences.",
+  "/no_think Write a haiku about load balancers.",
+  "/no_think What is the difference between a Deployment and a DaemonSet?",
+  "/no_think Summarize why model weights should live in object storage.",
 ];
 
 export default function () {
   const payload = JSON.stringify({
     model: MODEL,
     messages: [{ role: "user", content: prompts[Math.floor(Math.random() * prompts.length)] }],
-    max_tokens: 64,
+    max_tokens: 96,
   });
 
   const res = http.post(`${BASE_URL}/v1/chat/completions`, payload, {
@@ -56,8 +58,10 @@ export default function () {
   const ok = check(res, {
     "status 200": (r) => r.status === 200,
     "has content": (r) => {
-      try { return JSON.parse(r.body).choices[0].message.content.length > 0; }
-      catch { return false; }
+      try {
+        const m = JSON.parse(r.body).choices[0].message;
+        return (m.content || m.reasoning_content || "").length > 0;
+      } catch { return false; }
     },
   });
 
