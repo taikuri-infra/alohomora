@@ -85,16 +85,18 @@ spec:
             - 0.0.0.0
             - --port
             - "8000"
-            - --ctx-size
-            - "8192"
+            - --ctx-size          # 4 slots share this: 1024 tokens each
+            - "4096"
+            - --threads           # leave one core for kubelet + probes
+            - "3"
             - --parallel        # 4 concurrent slots — the knob the load tests explore
             - "4"
             - --metrics         # prometheus /metrics endpoint
           ports:
             - { containerPort: 8000, name: http }
           resources:
-            requests: { cpu: "2", memory: 2Gi }
-            limits: { memory: 4Gi }
+            requests: { cpu: "2", memory: 3Gi }
+            limits: { memory: 6Gi }   # first load test OOMKilled at 4Gi — see docs/runbooks
           readinessProbe:
             httpGet: { path: /health, port: 8000 }
             initialDelaySeconds: 5

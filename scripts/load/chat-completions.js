@@ -7,7 +7,7 @@
 //   - k6 output: p95 duration, req/s, errors
 //   - Grafana: llamacpp:requests_deferred (queue), prompt/predicted tokens/s
 import http from "k6/http";
-import { check } from "k6";
+import { check, sleep } from "k6";
 import { Trend, Counter } from "k6/metrics";
 
 const BASE_URL = __ENV.BASE_URL || "http://192.168.105.230:8000";
@@ -67,5 +67,8 @@ export default function () {
       completionTokens.add(usage.completion_tokens);
       tokensPerSec.add(usage.completion_tokens / (res.timings.duration / 1000));
     }
+  } else {
+    sleep(2);   // back off on failure — don't hammer a dying server with instant retries
   }
+  sleep(0.5);   // think time
 }
