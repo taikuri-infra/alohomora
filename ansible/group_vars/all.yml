@@ -13,3 +13,4 @@ kube_vip_version: "v0.8.9"
 # Cilium LB-IPAM pool for type: LoadBalancer services (announced via L2 on mesh0)
 lb_pool_start: 192.168.105.230
 lb_pool_stop: 192.168.105.239
+ingress_ip: 192.168.105.231      # shared cilium-ingress LB IP (UIs via *.nip.io)

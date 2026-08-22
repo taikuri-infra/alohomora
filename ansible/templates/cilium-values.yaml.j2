@@ -14,3 +14,11 @@ hubble:
     enabled: true
   ui:
     enabled: true
+# cilium is also the ingress controller — one shared LB IP for all UIs
+ingressController:
+  enabled: true
+  loadbalancerMode: shared
+  default: true
+  service:
+    annotations:
+      lbipam.cilium.io/ips: "{{ ingress_ip }}"
