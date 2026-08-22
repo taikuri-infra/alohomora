@@ -45,6 +45,17 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
+  # grafana's admin secret is generated fresh on every helm render — without
+  # this the app shows a permanent (harmless) OutOfSync on the secret + deployment
+  ignoreDifferences:
+    - kind: Secret
+      name: monitoring-grafana
+      jsonPointers: [/data]
+    - group: apps
+      kind: Deployment
+      name: monitoring-grafana
+      jqPathExpressions:
+        - .spec.template.metadata.annotations."checksum/secret"
   syncPolicy:
     automated:
       prune: true
@@ -52,3 +63,4 @@ spec:
     syncOptions:
       - CreateNamespace=true
       - ServerSideApply=true
+      - RespectIgnoreDifferences=true
