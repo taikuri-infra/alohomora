@@ -11,7 +11,8 @@ All web UIs sit behind the cilium ingress controller on one shared LB IP
 | Component | How to reach it |
 |-----------|-----------------|
 | Kubernetes API | VIP `https://192.168.105.210:6443` (kubeconfig points here) |
-| qwen-small (OpenAI API) | `http://192.168.105.230:8000/v1` (dedicated LB IP) |
+| **AI Gateway (OpenAI API)** | `http://192.168.105.232/v1` — the front door; routes by model name |
+| qwen-small direct | `http://192.168.105.230:8000/v1` (bypasses gateway — debugging only) |
 | Grafana | http://grafana.192.168.105.231.nip.io |
 | Prometheus | http://prometheus.192.168.105.231.nip.io |
 | Alertmanager | http://alertmanager.192.168.105.231.nip.io |

@@ -86,6 +86,9 @@ macOS. Node IPs sit high in the subnet to stay clear of the vmnet DHCP range.
       ([the writeup](docs/runbooks/01-first-capacity-test.md) is worth reading)
 - [x] ingress: Cilium ingress controller, every UI on a `*.nip.io` hostname over one
       shared LB IP — zero port-forwards ([docs/OPERATIONS.md](docs/OPERATIONS.md))
+- [x] Envoy AI Gateway: one OpenAI-compatible front door (`/v1`), model-name routing
+      to backends, `/v1/models` catalog — GPU backends plug in as one more YAML
+- [ ] gateway consumer auth (API keys), token-based quotas, model tiering
 - [ ] default-deny network policies
 - [ ] WireGuard hub + first rented GPU node, GPU Operator, `nvidia.com/gpu` in the cluster
 - [ ] vLLM serving weights from MinIO, Envoy AI Gateway, model tiering
