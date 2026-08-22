@@ -58,7 +58,8 @@ exchange) → writes `.secrets/wg/gpu-peers.json` from terraform outputs → run
 the wireguard playbook so every lab node dials every GPU. Spot instances:
 `-var is_spot=true` in `terraform/gpu/` for deep discounts.
 
-Defaults: `1L40S.20V` (48GB, ~$1.4/h), image with preinstalled driver
+Defaults: `1A6000.10V` (RTX A6000 48GB — $0.61/h on-demand, $0.31/h **spot, which is
+the default**; 2-node session ≈ $0.62/h), image with preinstalled driver
 (`ubuntu-24.04-cuda-12.8-open-docker`) — which is why the GPU Operator runs
 with `driver.enabled=false` and only wires the toolkit into k3s containerd.
 

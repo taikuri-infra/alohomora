@@ -25,7 +25,9 @@ variable "gpu_count" {
 
 variable "instance_type" {
   type    = string
-  default = "1L40S.20V" # 48GB VRAM, plenty for Qwen 7B-class; override per run
+  # RTX A6000 48GB: $0.61/h on-demand, $0.31/h spot — cheapest 48GB, ampere, vLLM-happy.
+  # step-ups: "1RTX6000ADA.10V" ($1.04) or "1L40S.20V" ($1.37) if more speed is wanted
+  default = "1A6000.10V"
 }
 
 variable "image" {
@@ -40,7 +42,7 @@ variable "location" {
 
 variable "is_spot" {
   type    = bool
-  default = false # flip true for big discounts; fine for short sessions
+  default = true # spot halves the price ($0.31/h/node); lab sessions are short — take it
 }
 
 variable "ssh_pubkey_path" {
