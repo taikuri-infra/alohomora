@@ -25,6 +25,14 @@ All web UIs sit behind the cilium ingress controller on one shared LB IP
 Ingress manifests: `gitops/platform/ingress/`. HTTP-only for now; TLS arrives
 with cert-manager + a real domain.
 
+**Security stance, stated explicitly:** these URLs are plaintext HTTP and some
+UIs (Prometheus, Alertmanager, Hubble, Longhorn) have no auth of their own.
+That's acceptable *only* because `192.168.105.0/24` is a host-only bridge —
+reachable from this machine alone, not from the LAN or internet. The moment
+anything gets a public IP (Hetzner move, GPU node), the rule flips: TLS via
+cert-manager, SSO/oauth2-proxy in front of authless UIs, and nothing exposed
+by default. Don't copy this pattern onto a routable network.
+
 LoadBalancer IPs from the Cilium pool (`192.168.105.230-239`) will replace most
 port-forwards once services get `type: LoadBalancer` — the Mac reaches those IPs
 directly over the vmnet bridge.
