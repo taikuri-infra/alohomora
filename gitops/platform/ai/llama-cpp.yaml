@@ -21,23 +21,49 @@ spec:
       nodeSelector:
         kubernetes.io/hostname: worker1
       initContainers:
-        - name: fetch-model
+        # 1. cache hit? pull from MinIO and we're done
+        - name: check-cache
           image: minio/mc:latest
           command: ["/bin/sh", "-c"]
           args:
             - |
-              set -e
               MODEL=Qwen3-0.6B-Q8_0.gguf
               mc alias set store http://minio.minio.svc:9000 "$ROOT_USER" "$ROOT_PASSWORD"
               if mc stat "store/models/$MODEL" >/dev/null 2>&1; then
                 echo "cache hit: pulling from MinIO"
                 mc cp "store/models/$MODEL" "/models/$MODEL"
               else
-                echo "cache miss: pulling from Hugging Face, then filling MinIO"
-                curl -fL -o "/models/$MODEL" \
-                  "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/$MODEL"
-                mc cp "/models/$MODEL" "store/models/$MODEL"
+                echo "cache miss"
               fi
+          env:
+            - name: ROOT_USER
+              valueFrom: { secretKeyRef: { name: minio-creds, key: rootUser } }
+            - name: ROOT_PASSWORD
+              valueFrom: { secretKeyRef: { name: minio-creds, key: rootPassword } }
+          volumeMounts:
+            - { name: models, mountPath: /models }
+        # 2. cache miss? download from Hugging Face
+        - name: fetch-hf
+          image: curlimages/curl:8.10.1
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              set -e
+              MODEL=Qwen3-0.6B-Q8_0.gguf
+              [ -f "/models/$MODEL" ] && { echo "already have it"; exit 0; }
+              curl -fL --retry 3 -o "/models/$MODEL" \
+                "https://huggingface.co/Qwen/Qwen3-0.6B-GGUF/resolve/main/$MODEL"
+          volumeMounts:
+            - { name: models, mountPath: /models }
+        # 3. fill the cache for next time (best effort)
+        - name: fill-cache
+          image: minio/mc:latest
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              MODEL=Qwen3-0.6B-Q8_0.gguf
+              mc alias set store http://minio.minio.svc:9000 "$ROOT_USER" "$ROOT_PASSWORD"
+              mc stat "store/models/$MODEL" >/dev/null 2>&1 || mc cp "/models/$MODEL" "store/models/$MODEL" || true
           env:
             - name: ROOT_USER
               valueFrom: { secretKeyRef: { name: minio-creds, key: rootUser } }
