@@ -36,7 +36,8 @@ server: https://10.8.0.11:6443
 token: "${k3s_token}"
 node-ip: ${wg_ip}
 node-label:
-  - node-role.kubernetes.io/gpu-worker=true
+  # node-role.kubernetes.io/* is FORBIDDEN for kubelet self-labeling (security);
+  # add the cosmetic role after join via kubectl. custom prefixes are fine:
   - alohomora.dev/tier=gpu
 node-taint:
   - nvidia.com/gpu=present:NoSchedule

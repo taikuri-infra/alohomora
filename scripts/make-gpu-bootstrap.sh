@@ -65,7 +65,6 @@ server: https://10.8.0.11:6443
 token: "$TOKEN"
 node-ip: 10.8.0.31
 node-label:
-  - node-role.kubernetes.io/gpu-worker=true
   - alohomora.dev/tier=gpu
 node-taint:
   - nvidia.com/gpu=present:NoSchedule

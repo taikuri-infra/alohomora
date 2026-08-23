@@ -85,8 +85,9 @@ kubectl get pods -n gpu-operator -w        # driver/toolkit/plugin land on gpu1
 kubectl describe node gpu1 | grep nvidia.com/gpu   # ← the money line: nvidia.com/gpu: 1
 ```
 
-The node arrives labeled (`node-role.kubernetes.io/gpu-worker`,
-`alohomora.dev/tier=gpu`) and tainted (`nvidia.com/gpu=present:NoSchedule`) —
+The node arrives labeled (`alohomora.dev/tier=gpu` — kubelet may NOT self-assign
+`node-role.kubernetes.io/*` labels, an anti-privilege-escalation rule; add the cosmetic
+role after join: `kubectl label node gpu1 node-role.kubernetes.io/gpu-worker=true`) and tainted (`nvidia.com/gpu=present:NoSchedule`) —
 nothing schedules there except pods that explicitly tolerate the taint (GPU
 Operator operands do; vLLM will).
 

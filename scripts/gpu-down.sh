@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export KUBECONFIG="$ROOT/kubeconfig"
 
-for n in $(kubectl get nodes -l node-role.kubernetes.io/gpu-worker=true -o name 2>/dev/null); do
+for n in $(kubectl get nodes -l alohomora.dev/tier=gpu -o name 2>/dev/null); do
   kubectl drain "$n" --ignore-daemonsets --delete-emptydir-data --timeout=90s || true
   kubectl delete "$n"
 done
