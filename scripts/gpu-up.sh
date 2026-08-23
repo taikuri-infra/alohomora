@@ -42,6 +42,5 @@ EOF
 cd "$ROOT/ansible" && ansible-playbook wireguard.yml -e "@../.secrets/wg/gpu-peers.json"
 
 echo
-echo "tunnel up — watching for nodes to join (Ctrl-C anytime):"
-export KUBECONFIG="$ROOT/kubeconfig"
-kubectl get nodes -w
+echo "tunnel configured — nodes will join within ~2 minutes."
+echo "watch with:  kubectl get nodes -w"
